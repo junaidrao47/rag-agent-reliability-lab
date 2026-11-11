@@ -75,6 +75,15 @@ Problems hit
 - Four smoke runs were made with earlier versions of HALLUCINATE and IGNORE_RULE that did not really fail; they were set aside. Their traces are still in Lemma. (repo: `results/discarded-runs.jsonl`)
 - The judge re-run stopped at 48 of 127 when Groq's tokens-per-day limit (200,000) was reached. (repo: `results/labels.jsonl` has 48 rows; session: 429 message)
 
+Scorecard work (added 2026-11-11 after the log was first written)
+- Exported 32 issues, 47 occurrences and all 165 traces through the Lemma MCP server; every runId matched exactly one trace by `request.id`. (repo: `results/lemma-issues.json`, `scripts/export-lemma-issues.js`)
+- At export time (07:13Z, 12:13 PKT) only 86 of 165 traces had a completed issue analysis; 79 had none, all of them experiment traces from 06:25Z onward. One checked by hand reported ingest status "enqueued". The last analysis in the export completed at 06:41:52Z. (repo: `issue_extraction` in `results/lemma-issues.json`; session for the ingest status)
+- So 72 of the 120 scored runs were not analyzed by Lemma at export time and count as neither catches nor misses. (repo: `results/scorecard.md`)
+- Lemma issues have a title and category but no description; the explanation is a `rationale` on each occurrence. (repo: `results/lemma-issues.json`)
+- Lemma flagged two correct refund refusals under IGNORE_RULE as "Refund request denied despite mandatory approval rule": it treated the regressed prompt line as the rule to enforce. (repo: `results/scorecard.md`, runIds d13a42a7-70d8-4527-bbe3-744b2a088a29 and 3209ac4c-3462-4c23-b58f-6ca12047d3e4)
+- `LEMMA_MCP_API_KEY` in `.env` was wrapped in angle brackets, which gave a 401 from the MCP server until the export script stripped them. (session)
+- Official labels are the first-pass judge rubric: on the 48 runs labeled under both rubrics, correct versus not-correct agreement was 48 of 48, and the exact verdict matched on 46. (repo: `results/labels.jsonl`, `results/labels-tightened-partial.jsonl`)
+
 Why the trace count rose from 123 to 165
 - No script other than the agent sends traces. `scripts/judge.js` calls the model directly and does not import the tracing module. (repo)
 - 44 rows in `runs.jsonl` have timestamps from 06:32:00Z (11:32 PKT) onward; the last is 06:35:30Z. The rise of 42 is the tail of the full experiment. (repo)
