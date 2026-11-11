@@ -8,7 +8,9 @@
     "dev": "node --watch src/server.js",
     "ask": "node scripts/ask.js",
     "experiment": "node scripts/run-experiment.js",
-    "judge": "node scripts/judge.js"
+    "judge": "node scripts/judge.js",
+    "export-issues": "node scripts/export-lemma-issues.js",
+    "scorecard": "node scripts/scorecard.js"
   },
   "keywords": [],
   "author": "",
