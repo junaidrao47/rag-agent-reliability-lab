@@ -1,4 +1,7 @@
 .env
+.env.*
+!.env.example
 node_modules/
 results/*
 !results/.gitkeep
+.claude/settings.local.json

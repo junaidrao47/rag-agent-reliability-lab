@@ -1,8 +1,9 @@
 {
-  "name": "lemma-testing",
+  "name": "rag-agent-reliability-lab",
   "version": "1.0.0",
-  "description": "",
+  "description": "An open test of whether Lemma catches silent AI-agent failures: a support RAG agent with five injected bugs, an LLM judge and a scorecard.",
   "main": "src/server.js",
+  "type": "module",
   "scripts": {
     "seed": "node scripts/seed.js",
     "dev": "node --watch src/server.js",
@@ -12,9 +13,27 @@
     "export-issues": "node scripts/export-lemma-issues.js",
     "scorecard": "node scripts/scorecard.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "ai-agents",
+    "rag",
+    "observability",
+    "llm-evaluation",
+    "lemma",
+    "silent-failures"
+  ],
+  "author": "Rao Muhammad Junaid",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/junaidrao47/rag-agent-reliability-lab.git"
+  },
+  "homepage": "https://github.com/junaidrao47/rag-agent-reliability-lab#readme",
+  "bugs": {
+    "url": "https://github.com/junaidrao47/rag-agent-reliability-lab/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
     "@uselemma/tracing": "^7.12.5",
@@ -22,6 +41,5 @@
     "express": "^5.3.0",
     "mongodb": "^7.8.0",
     "openai": "^7.55.0"
-  },
-  "type": "module"
+  }
 }
