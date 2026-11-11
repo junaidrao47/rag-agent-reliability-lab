@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "skills": {
+    "lemma-artifacts": {
+      "source": "uselemma/lemma",
+      "sourceType": "github",
+      "skillPath": "skills/lemma-artifacts/SKILL.md",
+      "computedHash": "54063e63d8b744d97e44755c34656c560e65314e107efde1bafbad46d095e3dc"
+    },
+    "lemma-tracing": {
+      "source": "uselemma/lemma",
+      "sourceType": "github",
+      "skillPath": "skills/lemma-tracing/SKILL.md",
+      "computedHash": "a435ce574a000208e124e52bc394ff128855c557fee1ac4e1aa22a925da9de9b"
+    }
+  }
+}
