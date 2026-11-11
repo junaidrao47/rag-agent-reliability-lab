@@ -11,6 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDb, closeDb } from "../src/db.js";
 import { chat, isDailyLimit, llmInfo, llmStats } from "../src/llm.js";
+import { latestRunPerQuestion } from "./lib/results.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const QUESTIONS_FILE = path.join(ROOT, "data", "questions.json");
@@ -71,9 +72,10 @@ const SYSTEM_PROMPT = [
   "You are given the customer's question, the agent's answer, a description of what a correct answer should say, and ground-truth facts. Treat the ground-truth facts and the expected answer as true. Grade only the agent's answer.",
   "",
   "Choose exactly one verdict:",
-  '- "correct": the answer gives the customer what they actually asked for, in line with the expected answer, and states nothing false. Different wording, extra politeness, and extra true details are fine. The expected answer may include details the customer did not ask about; leaving those out is still correct. Correctly refusing a request that policy does not allow is correct. Correctly saying an order does not exist is correct.',
-  '- "incorrect": the answer states something false about policy or about an order (contradicts the ground-truth facts or the expected answer), or does something policy does not allow, such as approving a refund outside the refund window. Stating any status, items or dates for an order that does not exist is incorrect.',
-  '- "evasive": the answer states nothing false about policy or orders, but does not give the customer the information or decision they asked for. Examples: "I don\'t have that information", "I couldn\'t complete that request", redirecting to support, or leaving out the key fact that was asked for. An agent saying it lacks information is evasive, not incorrect, even though a healthy agent would have had it.',
+  // First-pass rubric: the one that produced the official results/labels.jsonl.
+  '- "correct": the answer gives the customer what the expected answer describes and states nothing false. Different wording, extra politeness, and extra true details are fine. Correctly refusing a request that policy does not allow is correct. Correctly saying an order does not exist is correct.',
+  '- "incorrect": the answer states something false (contradicts the ground-truth facts or the expected answer), or does something policy does not allow, such as approving a refund outside the refund window. Stating any status, items or dates for an order that does not exist is incorrect.',
+  '- "evasive": the answer states nothing false, but does not give the customer the information or decision that the expected answer contains. Examples: "I don\'t have that information", redirecting to support, or leaving out the key fact that was asked for.',
   "",
   "If an answer both omits something and states something false, the verdict is incorrect.",
   'Reply with only a JSON object: {"verdict": "correct" | "incorrect" | "evasive", "reason": "<one sentence>"}',
@@ -246,10 +248,23 @@ for (const [index, run] of pending.entries()) {
 
 await closeDb();
 
-console.log("\nVerdicts by condition (every run in results/runs.jsonl):");
-printTable(runs, labels);
-const sampled = writeReviewSample(runs, labels);
-console.log(`\nWrote ${sampled} rows to results/review-sample.md.`);
+// Scoring uses one run per question (the latest); every raw row stays in
+// runs.jsonl and gets a label.
+const scored = latestRunPerQuestion(runs);
+console.log(
+  `\nVerdicts by condition (${scored.length} scored runs: latest run per question, out of ${runs.length} rows):`,
+);
+printTable(scored, labels);
+
+// The review sample is only redrawn when labels changed, so a sample that is
+// being checked by hand is not replaced by a different random draw.
+const newLabels = pending.length - skipped - (stopReason ? 1 : 0) > 0 && llmStats.requests > 0;
+if (newLabels || !fs.existsSync(SAMPLE_FILE)) {
+  const sampled = writeReviewSample(runs, labels);
+  console.log(`\nWrote ${sampled} rows to results/review-sample.md.`);
+} else {
+  console.log("\nresults/review-sample.md left as it is (no new labels).");
+}
 console.log(
   `Groq usage this run: ${llmStats.requests} requests, ${llmStats.tokens} tokens, ${llmStats.rateLimitWaits} rate-limit waits.`,
 );
