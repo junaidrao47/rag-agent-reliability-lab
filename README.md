@@ -49,7 +49,15 @@ The full per-condition table, with example catches and misses and the issue
 titles Lemma used, is generated into `results/scorecard.md` by
 `npm run scorecard`. Its partial rows carry the same coverage caveat.
 
-![Lemma dashboard after the experiment](screenshots/dashboard-1152.png)
+![Lemma dashboard on 2026-11-15: 32 issues, "165 Total traces processed", no pending state](screenshots/dashboard-2026-11-15-165-processed.png)
+
+The dashboard overview on 2026-11-15, four days after the last analysis. It
+reports all 165 traces as processed; the API reports 86 with a completed
+analysis.
+
+<!-- Screenshot to add: screenshots/dashboard-1152.png
+     The dashboard on 2026-11-11 at 11:52 PKT, showing 165 traces and 32 issues. -->
+
 
 ## The five failures
 
@@ -121,12 +129,19 @@ Specifics and evidence for each are in [NOTES.md](NOTES.md).
    way to retry. The API returns `issue_extraction: null` for those traces
    rather than a status. A tool built to catch silent failures skipped 79
    traces without saying so, which is the same class of failure.
+
+   ![Traces page on 2026-11-15: "Show unprocessed" toggle on, most rows dimmed](screenshots/traces-2026-11-15-unprocessed.png)
 2. **No sign that analysis is pending.** Earlier, the dashboard showed 123
    traces and 0 issues, then 165 traces and 32 issues twenty minutes later,
    with nothing in between to say review was still running. "0 issues" reads
    as "all clear".
+   <!-- Screenshot to add: screenshots/dashboard-1132.png
+        The dashboard on 2026-11-11 at 11:32 PKT, showing 123 traces and 0 issues. -->
 3. **The plan step can lock during signup.** All three plan buttons sat on
    "Checking permissions..." and could not be clicked.
+   <!-- Screenshot to add: screenshots/plan-step-checking-permissions.png
+        Onboarding step 3 with all three plan buttons reading "Checking permissions...". -->
+
 4. **The starter script used exports that the published SDK does not have**,
    so the very first run crashed and sent no trace.
 5. **A failed run always ships an error trace.** There is no way to discard a
