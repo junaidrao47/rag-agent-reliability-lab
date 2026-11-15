@@ -6,8 +6,8 @@
 // Offline: reads results/runs.jsonl, results/labels.jsonl and
 // results/lemma-issues.json (from scripts/export-lemma-issues.js). It calls
 // no model, does not import the tracing module and sends no traces.
-// If README.md contains the scorecard markers, the table between them is
-// refreshed with the same text.
+// If README.md contains the scorecard markers, the section between them is
+// refreshed: complete conditions first, partially analyzed ones separately.
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -120,19 +120,26 @@ const mainHeaders = [
   "Missed (analyzed, not flagged)",
   "Failed runs not analyzed yet",
 ];
-const mainRows = perCondition.map((c) => [
-  c.condition,
-  c.scored,
-  c.incorrect,
-  c.evasive,
-  `${c.analyzed}/${c.scored}`,
-  c.flagged,
-  c.caught,
-  rate(c.caught, c.failedAnalyzed),
-  rate(c.caught, c.failed),
-  c.missed,
-  c.failedPending,
-]);
+// A condition is complete when Lemma analyzed every scored run in it. Only
+// then is a detection rate for the whole condition meaningful. Partial rows
+// carry the coverage next to every figure, and no rate over all failed runs.
+const isComplete = (c) => c.analyzed === c.scored;
+const mainRows = perCondition.map((c) => {
+  const only = isComplete(c) ? null : `only ${c.analyzed}/${c.scored} analyzed`;
+  return [
+    only ? `${c.condition} (partial)` : c.condition,
+    c.scored,
+    c.incorrect,
+    c.evasive,
+    `${c.analyzed}/${c.scored}`,
+    c.flagged,
+    c.caught,
+    only ? `${c.caught}/${c.failedAnalyzed}, ${only}` : rate(c.caught, c.failedAnalyzed),
+    only ? `not known, ${only}` : rate(c.caught, c.failed),
+    c.missed,
+    c.failedPending,
+  ];
+});
 
 const markdownTable = (headers, rows) =>
   [
@@ -148,17 +155,34 @@ const lastCompleted = lemma.traces
   .filter(Boolean)
   .sort()
   .pop();
-const coverageNote =
-  totalAnalyzed === scored.length
-    ? `Lemma had finished issue analysis on all ${scored.length} scored runs when the issues were exported (${lemma.exported_at}).`
-    : `**Incomplete analysis:** when the issues were exported (${lemma.exported_at}), Lemma had finished issue analysis on ${totalAnalyzed} of the ${scored.length} scored runs. The other ${scored.length - totalAnalyzed} traces had no analysis result yet, so they are neither catches nor misses. The last analysis in the export completed at ${lastCompleted}.`;
+const fullCoverage = totalAnalyzed === scored.length;
+const staleDays = lastCompleted
+  ? Math.round((new Date(lemma.exported_at) - new Date(lastCompleted)) / 86_400_000)
+  : null;
+const staleNote =
+  staleDays >= 1
+    ? ` The last analysis completed at ${lastCompleted}, and no trace was analyzed in the ${staleDays} ${staleDays === 1 ? "day" : "days"} between then and the export.`
+    : ` The last analysis in the export completed at ${lastCompleted}.`;
+const coverageNote = fullCoverage
+  ? `Lemma had finished issue analysis on all ${scored.length} scored runs when the issues were exported (${lemma.exported_at}).`
+  : `**Incomplete analysis:** when the issues were exported (${lemma.exported_at}), Lemma had finished issue analysis on ${totalAnalyzed} of the ${scored.length} scored runs. The other ${scored.length - totalAnalyzed} traces had no analysis result (the API returns \`issue_extraction: null\` for them), so they are neither catches nor misses.${staleNote}`;
+const definitions =
+  'A run is "failed" when the judge labeled it incorrect or evasive. "Flagged" means Lemma attached at least one issue to the run\'s trace, whatever the issue says. Scored runs are the latest run per question.';
 
+const completeConditions = perCondition.filter(isComplete);
+const partialConditions = perCondition.filter((c) => !isComplete(c));
+const partialWarning = `> **Read this before the table.** Only ${
+  completeConditions.map((c) => c.condition).join(", ") || "no condition"
+} was fully analyzed. Rows marked "(partial)" are not detection rates for the condition: each counts only the runs Lemma analyzed, and a low "caught" figure there means few runs were looked at, not that the failure was proven missed.`;
+
+// Full table for results/scorecard.md.
 const tableBlock = [
+  ...(fullCoverage ? [] : [partialWarning, ""]),
   markdownTable(mainHeaders, mainRows),
   "",
   coverageNote,
   "",
-  'A run is "failed" when the judge labeled it incorrect or evasive. "Flagged" means Lemma attached at least one issue to the run\'s trace, whatever the issue says. Scored runs are the latest run per question.',
+  definitions,
 ].join("\n");
 
 // --- Sections --------------------------------------------------------------------
@@ -237,6 +261,70 @@ const flaggedCount = (traces) => count(traces, (t) => occurrencesByTrace.has(t.i
 const correctFlaggedElsewhere = scored.filter(
   (r) => r.run.condition !== "baseline" && r.verdict === "correct" && r.flagged,
 );
+
+// --- README block ------------------------------------------------------------------
+// Complete conditions first, as the only rates that can be stated. Partial
+// ones in their own subsection, every figure next to its coverage.
+
+const readmeLines = [];
+if (fullCoverage) {
+  readmeLines.push(markdownTable(mainHeaders, mainRows), "", coverageNote, "", definitions);
+} else {
+  readmeLines.push(coverageNote, "");
+  readmeLines.push(
+    completeConditions.length === 1
+      ? `### The one complete result: ${completeConditions[0].condition}`
+      : "### Complete results",
+    "",
+  );
+  if (completeConditions.length === 0) {
+    readmeLines.push("No condition was fully analyzed, so no detection rate can be stated.", "");
+  }
+  for (const c of completeConditions) {
+    readmeLines.push(
+      `**${c.condition}: Lemma caught ${rate(c.caught, c.failed)} of the failed runs.** It analyzed all ${c.scored} runs in this condition. The judge marked ${c.failed} of them as failed; Lemma flagged ${c.caught} and missed ${c.missed}.`,
+      "",
+    );
+  }
+  if (completeConditions.length) {
+    readmeLines.push(
+      `${completeConditions.length === 1 ? "This is the only condition" : "These are the only conditions"} where a detection rate can be stated with confidence.`,
+      "",
+    );
+  }
+  readmeLines.push(
+    "### Partial: analysis incomplete",
+    "",
+    "Lemma analyzed only some of the runs in these conditions and then stopped. Each row says what happened on the runs it did analyze. None of these is a detection rate for the condition.",
+    "",
+    markdownTable(
+      ["Condition", "Analyzed by Lemma", "Failed runs among those analyzed", "Caught", "Missed", "Failed runs never analyzed"],
+      partialConditions.map((c) => [
+        c.condition,
+        `only ${c.analyzed} of ${c.scored}`,
+        c.failedAnalyzed,
+        `${c.caught} of ${c.failedAnalyzed} analyzed`,
+        `${c.missed} of ${c.failedAnalyzed} analyzed`,
+        `${c.failedPending} of ${c.failed} failed runs`,
+      ]),
+    ),
+    "",
+    `- **These are not proven misses.** A row like "0 of 4 analyzed" means Lemma looked at four failed runs and raised no issue on them. It says nothing about the failed runs it never analyzed.`,
+    "- **The analyzed runs are not a random sample.** They are the runs Lemma reached before it stopped, so they may not represent the condition.",
+  );
+  const correctFlagged = perCondition.filter((c) => c.condition !== "baseline" && c.correctFlagged > 0);
+  for (const c of correctFlagged) {
+    readmeLines.push(
+      `- **${c.condition}:** Lemma also flagged ${c.correctFlagged} ${c.correctFlagged === 1 ? "run" : "runs"} that the judge marked correct.`,
+    );
+  }
+  readmeLines.push(
+    `- **False positives on baseline:** ${baselineCorrectAnalyzed.length} of the ${baselineCorrect.length} correct baseline runs were analyzed, and Lemma flagged ${baselineFalsePositives.length} of them.`,
+    "",
+    definitions,
+  );
+}
+const readmeBlock = readmeLines.join("\n");
 
 // --- Write -------------------------------------------------------------------------
 
@@ -326,9 +414,9 @@ if (fs.existsSync(README_FILE)) {
   if (start !== -1 && end > start) {
     fs.writeFileSync(
       README_FILE,
-      `${readme.slice(0, start + README_START.length)}\n${tableBlock}\n${readme.slice(end)}`,
+      `${readme.slice(0, start + README_START.length)}\n${readmeBlock}\n${readme.slice(end)}`,
     );
-    console.log("README.md scorecard table refreshed.");
+    console.log("README.md scorecard section refreshed.");
   }
 }
 

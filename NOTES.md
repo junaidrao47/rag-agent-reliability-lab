@@ -84,6 +84,14 @@ Scorecard work (added 2026-11-11 after the log was first written)
 - `LEMMA_MCP_API_KEY` in `.env` was wrapped in angle brackets, which gave a 401 from the MCP server until the export script stripped them. (session)
 - Official labels are the first-pass judge rubric: on the 48 runs labeled under both rubrics, correct versus not-correct agreement was 48 of 48, and the exact verdict matched on 46. (repo: `results/labels.jsonl`, `results/labels-tightened-partial.jsonl`)
 
+Analysis stall (added 2026-11-15)
+- Re-exported on 2026-11-15 at 06:09Z: still 32 issues, 47 occurrences and 86 of 165 traces with a completed issue analysis, the same 86 as on 2026-11-11. The last `issue_extraction.completed_at` is still 2026-11-11T06:41:52Z. (repo: `results/lemma-issues.json`)
+- The 79 unanalyzed traces have `issue_extraction: null` in the MCP response, not a pending or failed status. (repo: `results/lemma-issues.json`)
+- 48 of the 120 scored runs are analyzed: STALE_DOC 20, IGNORE_RULE 8, HALLUCINATE 6, TRUNCATE 5, baseline 5, WRONG_TOOL 4. (repo: `results/scorecard.md`)
+- Dashboard overview on 2026-11-15, about 11:15 PKT: "32 Issues identified", "165 Total traces processed", no pending or stalled state. (user and session; screenshot: dashboard-2026-11-15-165-processed)
+- Traces page, same time: a "Show unprocessed" toggle, switched on, and most rows drawn in dimmer text. The brighter rows line up with traces that have a completed analysis. No count of unprocessed traces, no reason, no retry. (session; screenshot: traces-2026-11-15-unprocessed)
+- No traces were sent after 2026-11-11. The cause of the stall is unknown; Lemma was not contacted.
+
 Why the trace count rose from 123 to 165
 - No script other than the agent sends traces. `scripts/judge.js` calls the model directly and does not import the tracing module. (repo)
 - 44 rows in `runs.jsonl` have timestamps from 06:32:00Z (11:32 PKT) onward; the last is 06:35:30Z. The rise of 42 is the tail of the full experiment. (repo)
@@ -107,6 +115,7 @@ Why the trace count rose from 123 to 165
 6. **Worked well:** awaiting `lemma.trace(...)` waits for delivery, so no flush or sleep is needed. (Day 1)
 
 ### Dashboard and detection
+0. **Analysis stopped silently (the main finding).** Issue analysis stopped at 86 of 165 traces on 2026-11-11 and had not moved four days later, while the dashboard overview read "165 Total traces processed". Why it matters: more than half of the scored runs were never checked, and nothing says so; a user would read the issue list as complete. Suggested fix: show analyzed versus received counts on the overview, give unanalyzed traces an explicit status with a reason, and offer a retry. (Day 3, "Analysis stall")
 1. **No sign that review is pending.** 123 traces and 0 issues at 11:32, then 165 traces and 32 issues at 11:52, with nothing in between. Why it matters: "0 issues" reads as "nothing wrong" when it means "not analyzed yet". Suggested fix: show an "analyzing N traces" state next to the issue count. The MCP API already returns `issue_extraction.status: "running"` per trace. (Day 3; session for the MCP field)
 2. **Worked well:** 32 issues were detected without any added context. (Day 3)
 

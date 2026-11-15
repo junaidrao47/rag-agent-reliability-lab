@@ -7,25 +7,47 @@ confident, wrong answers with no errors, ran 20 questions per bug plus a
 healthy baseline, and compared what Lemma flagged against independent labels.
 Nothing sent to Lemma says which runs were broken.
 
+> **Read this first: Lemma analyzed only 48 of the 120 runs, then stopped.**
+> The last analysis finished on 2026-11-11. Four days later the count had not
+> moved. The dashboard overview still says "165 Total traces processed" and
+> shows nothing pending, stalled or failed. Every result below reflects that
+> partial coverage: one condition was fully analyzed, and the other five were
+> not.
+
 ## Scorecard
 
 <!-- scorecard:start -->
-| Condition | Scored runs | Incorrect (judge) | Evasive (judge) | Analyzed by Lemma | Flagged by Lemma | Failed runs caught | Detection rate (analyzed failed runs) | Detection rate (all failed runs) | Missed (analyzed, not flagged) | Failed runs not analyzed yet |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| STALE_DOC | 20 | 20 | 0 | 20/20 | 19 | 19 | 19/20 (95.0%) | 19/20 (95.0%) | 1 | 0 |
-| WRONG_TOOL | 20 | 2 | 18 | 4/20 | 0 | 0 | 0/4 (0.0%) | 0/20 (0.0%) | 4 | 16 |
-| HALLUCINATE | 20 | 19 | 1 | 6/20 | 1 | 1 | 1/6 (16.7%) | 1/20 (5.0%) | 5 | 14 |
-| IGNORE_RULE | 20 | 11 | 2 | 8/20 | 8 | 6 | 6/6 (100.0%) | 6/13 (46.2%) | 0 | 7 |
-| TRUNCATE | 20 | 0 | 18 | 5/20 | 1 | 1 | 1/5 (20.0%) | 1/18 (5.6%) | 4 | 13 |
-| baseline | 20 | 1 | 2 | 5/20 | 1 | 1 | 1/1 (100.0%) | 1/3 (33.3%) | 0 | 2 |
+**Incomplete analysis:** when the issues were exported (2026-11-15T06:09:47.716Z), Lemma had finished issue analysis on 48 of the 120 scored runs. The other 72 traces had no analysis result (the API returns `issue_extraction: null` for them), so they are neither catches nor misses. The last analysis completed at 2026-11-11T06:41:52.675Z, and no trace was analyzed in the 4 days between then and the export.
 
-**Incomplete analysis:** when the issues were exported (2026-11-11T07:13:06.189Z), Lemma had finished issue analysis on 48 of the 120 scored runs. The other 72 traces had no analysis result yet, so they are neither catches nor misses. The last analysis in the export completed at 2026-11-11T06:41:52.675Z.
+### The one complete result: STALE_DOC
+
+**STALE_DOC: Lemma caught 19/20 (95.0%) of the failed runs.** It analyzed all 20 runs in this condition. The judge marked 20 of them as failed; Lemma flagged 19 and missed 1.
+
+This is the only condition where a detection rate can be stated with confidence.
+
+### Partial: analysis incomplete
+
+Lemma analyzed only some of the runs in these conditions and then stopped. Each row says what happened on the runs it did analyze. None of these is a detection rate for the condition.
+
+| Condition | Analyzed by Lemma | Failed runs among those analyzed | Caught | Missed | Failed runs never analyzed |
+| --- | --- | --- | --- | --- | --- |
+| WRONG_TOOL | only 4 of 20 | 4 | 0 of 4 analyzed | 4 of 4 analyzed | 16 of 20 failed runs |
+| HALLUCINATE | only 6 of 20 | 6 | 1 of 6 analyzed | 5 of 6 analyzed | 14 of 20 failed runs |
+| IGNORE_RULE | only 8 of 20 | 6 | 6 of 6 analyzed | 0 of 6 analyzed | 7 of 13 failed runs |
+| TRUNCATE | only 5 of 20 | 5 | 1 of 5 analyzed | 4 of 5 analyzed | 13 of 18 failed runs |
+| baseline | only 5 of 20 | 1 | 1 of 1 analyzed | 0 of 1 analyzed | 2 of 3 failed runs |
+
+- **These are not proven misses.** A row like "0 of 4 analyzed" means Lemma looked at four failed runs and raised no issue on them. It says nothing about the failed runs it never analyzed.
+- **The analyzed runs are not a random sample.** They are the runs Lemma reached before it stopped, so they may not represent the condition.
+- **IGNORE_RULE:** Lemma also flagged 2 runs that the judge marked correct.
+- **False positives on baseline:** 4 of the 17 correct baseline runs were analyzed, and Lemma flagged 0 of them.
 
 A run is "failed" when the judge labeled it incorrect or evasive. "Flagged" means Lemma attached at least one issue to the run's trace, whatever the issue says. Scored runs are the latest run per question.
 <!-- scorecard:end -->
 
-The full scorecard, with example catches and misses and the issue titles Lemma
-used, is generated into `results/scorecard.md` by `npm run scorecard`.
+The full per-condition table, with example catches and misses and the issue
+titles Lemma used, is generated into `results/scorecard.md` by
+`npm run scorecard`. Its partial rows carry the same coverage caveat.
 
 ![Lemma dashboard after the experiment](screenshots/dashboard-1152.png)
 
@@ -88,24 +110,35 @@ Everything under `results/` is git-ignored.
 
 Specifics and evidence for each are in [NOTES.md](NOTES.md).
 
-1. **No sign that analysis is pending.** The dashboard showed 123 traces and
-   0 issues, then 165 traces and 32 issues twenty minutes later, with nothing
-   in between to say review was still running. "0 issues" reads as "all
-   clear". ![0 issues while analysis was pending](screenshots/dashboard-1132.png)
-2. **The plan step can lock during signup.** All three plan buttons sat on
+1. **Analysis stopped silently, and the dashboard says everything was
+   processed.** Lemma finished issue analysis on 86 of the project's 165
+   traces (48 of the 120 scored runs) and then stopped. The last analysis
+   completed on 2026-11-11 at 06:41 UTC. An export four days later, on
+   2026-11-15, showed the same 86. The dashboard overview reads "165 Total
+   traces processed" and 32 issues, with no pending, stalled or failed state.
+   The only hint I found is on the Traces page: a "Show unprocessed" toggle,
+   and unanalyzed rows drawn in dimmer text, with no count, no reason and no
+   way to retry. The API returns `issue_extraction: null` for those traces
+   rather than a status. A tool built to catch silent failures skipped 79
+   traces without saying so, which is the same class of failure.
+2. **No sign that analysis is pending.** Earlier, the dashboard showed 123
+   traces and 0 issues, then 165 traces and 32 issues twenty minutes later,
+   with nothing in between to say review was still running. "0 issues" reads
+   as "all clear".
+3. **The plan step can lock during signup.** All three plan buttons sat on
    "Checking permissions..." and could not be clicked.
-   ![Plan step stuck](screenshots/plan-step-checking-permissions.png)
-3. **The starter script used exports that the published SDK does not have**,
+4. **The starter script used exports that the published SDK does not have**,
    so the very first run crashed and sent no trace.
-4. **A failed run always ships an error trace.** There is no way to discard a
+5. **A failed run always ships an error trace.** There is no way to discard a
    trace once started, so setup mistakes end up in the project.
-5. **`trace.output()` is silently ignored** in the callback form of
+6. **`trace.output()` is silently ignored** in the callback form of
    `lemma.trace`; the callback's return value replaces it.
-6. **No free plan**, and the trial converts to paid unless cancelled.
+7. **No free plan**, and the trial converts to paid unless cancelled.
 
 What worked well: the first trace arrived the same night, awaiting
 `lemma.trace(...)` needs no flush, and issues were detected without my adding
-any context about the agent.
+any context about the agent. On the one condition it fully analyzed, Lemma
+caught 19 of 20 failures.
 
 ## Caveats
 
@@ -119,8 +152,13 @@ any context about the agent.
   asked for.
 - **"Flagged" is generous.** A run counts as flagged if Lemma attached any
   issue to its trace, even one about something other than the injected bug.
-- **Analysis coverage.** The scorecard only counts a miss when Lemma had
-  finished analyzing the trace. See the note under the table.
+- **Analysis coverage.** Lemma analyzed 48 of the 120 scored runs. A miss is
+  only counted when Lemma had finished analyzing the trace, and the 72
+  unanalyzed runs are neither catches nor misses. The analyzed runs are the
+  ones Lemma reached before it stopped, not a random sample.
+- **I don't know why analysis stopped.** It could be a trial limit, a queue
+  fault or something else. I did not contact Lemma before publishing, and I
+  sent no further traces after the experiment.
 - **Not every bug fired.** `IGNORE_RULE` produced a wrong answer on 11 of 20
   questions; the judge's counts in the table are the real denominator.
 - **One design caveat.** In `HALLUCINATE` the false order status comes out of
